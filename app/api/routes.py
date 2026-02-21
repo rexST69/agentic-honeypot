@@ -1,6 +1,10 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Request
+from slowapi import Limiter
+from slowapi.util import get_remote_address
 from app.api.schemas import IncomingRequest, APIResponse
 from app.api.auth import verify_api_key
+
+limiter = Limiter(key_func=get_remote_address)
 
 from app.core import session_store, orchestrator, detection
 from app.core.state_machine import FSMState
@@ -51,9 +55,10 @@ def build_agent_notes(
     response_model=APIResponse,
     dependencies=[Depends(verify_api_key)],
 )
-def handle_message(request: IncomingRequest) -> APIResponse:
-    session_id = request.sessionId
-    incoming_text = request.message.text
+@limiter.limit("30/minute")
+def handle_message(request: Request, body: IncomingRequest) -> APIResponse:
+    session_id = body.sessionId
+    incoming_text = body.message.text
 
     # 1. Load or create session
     session_store.create_session(session_id)

@@ -77,18 +77,30 @@ def build_prompt(category: ResponseCategory, persona_traits: dict) -> str:
     )
 
 
-def call_gemini(prompt: str) -> Optional[str]:
+def call_gemini(prompt: str, max_retries: int = 3) -> Optional[str]:
+    import time
     try:
         import google.generativeai as genai
         genai.configure(api_key=GEMINI_API_KEY)
         model = genai.GenerativeModel(GEMINI_MODEL)
-        response = model.generate_content(
-            prompt,
-            generation_config={"max_output_tokens": 50, "temperature": 0.6},
-        )
-        return response.text.strip() if response and response.text else None
+
+        for attempt in range(max_retries):
+            try:
+                response = model.generate_content(
+                    prompt,
+                    generation_config={"max_output_tokens": 50, "temperature": 0.6},
+                )
+                return response.text.strip() if response and response.text else None
+            except Exception as e:
+                error_msg = str(e).lower()
+                if "429" in error_msg or "rate" in error_msg or "resource" in error_msg:
+                    if attempt < max_retries - 1:
+                        time.sleep(2 ** attempt)
+                        continue
+                return None
     except Exception:
         return None
+    return None
 
 
 def generate_response(

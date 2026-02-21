@@ -58,3 +58,26 @@ def transition_to_terminated(current_state: FSMState) -> FSMState:
 
 def is_terminal_state(state: FSMState) -> bool:
     return state in TERMINAL_STATES
+
+
+def next_state(current_state: FSMState, detection_result: dict, turn_count: int) -> FSMState:
+    """
+    Core transition logic.
+    Determines if the session should move forward based on rules.
+    """
+    # 1. INIT -> NORMAL
+    if current_state == FSMState.INIT:
+        current_state = transition_to_normal(current_state)
+
+    # 2. NORMAL -> SUSPICIOUS
+    if current_state == FSMState.NORMAL:
+        if detection_result.get("score", 0) >= 3:
+            current_state = transition_to_suspicious(current_state)
+        else:
+            return current_state
+
+    # 3. SUSPICIOUS -> AGENT_ENGAGED
+    if current_state == FSMState.SUSPICIOUS:
+        return transition_to_agent_engaged(current_state)
+
+    return current_state
